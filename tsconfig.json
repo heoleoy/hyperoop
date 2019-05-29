@@ -3,6 +3,8 @@
       "target": "es5",
       "module": "esnext",
       "declaration": true,
+      "strict": true,
+      "suppressImplicitAnyIndexErrors":true,
       "sourceMap": true,
       "moduleResolution": "node",
       "esModuleInterop": true,

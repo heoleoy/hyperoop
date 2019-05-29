@@ -10,13 +10,13 @@ export interface IRecord {
 /** Interface of `redoundo.Hist` object. */
 export interface IHistory {
     /** Add new record to a history, then `r.Redo()` will be called automatically. */
-    add(r: IRecord);
+    add(r: IRecord): any;
     /** Undo the last record in a history. */
-    undo();
+    undo(): any;
     /** Redo last undone record and return it back to the history. */
-    redo();
+    redo(): any;
     /** Clean the history. */
-    clean();
+    clean(): any;
     /** Length of undoing history. */
     readonly UndoLength: number;
     /** Length of redoing history. */

@@ -23,26 +23,26 @@ export class Actions<S extends {}> {
     /** This property, along with the `Remember` property, is used to change
      *  the state of an application and automatically redraw the user interface.
      */
-    get State(): S { return this.state; }
+    get State(): S | undefined { return this.state; }
 
     /** This property has almost the same functionality as the `State` property,
      *  with the difference that changes made to it can be undone by calling the
      *  `History.undo` method.
      */
-    get Remember(): S { return this.remember; }
+    get Remember(): S | undefined { return this.remember; }
 
     /** You can force redraw of the user interface by calling the `sheduleRender`
      *  method provided by this property. Usually you do not need to call it directly.
      */
-    get Renderer(): IRenderer { return this.renderer; }
+    get Renderer(): IRenderer | undefined { return this.renderer; }
 
     /** Object of `redoundo.Hist` class is needed for redo/undo functionality. */
-    public readonly History: IHistory;
+    public readonly History?: IHistory;
 
     private orig:     S;
-    private state:    S;
-    private remember: S;
-    private renderer: IRenderer;
+    private state?:    S;
+    private remember?: S;
+    private renderer?: IRenderer;
 
     /** Construct an `Action` object, setting the initial `state` to it and optionally describing
      *  the `hist` object of type `redoundo.Hist`.
@@ -81,17 +81,17 @@ export class Actions<S extends {}> {
             this.History.add({
                 Redo: () => {
                     for (const k of keys) { self.orig[k] = s[k]; }
-                    self.renderer.scheduleRender();
+                    (self.renderer as IRenderer).scheduleRender();
                 },
                 Undo: () => {
-                    for (const k in was) { self.orig[k] = was[k]; }
+                    for (const k in was) { self.orig[k] = was[k] as S[Extract<keyof S, string>]; }
                     for (const k of wasnt) { delete self.orig[k]; }
-                    self.renderer.scheduleRender();
+                    (self.renderer as IRenderer).scheduleRender();
                 },
             });
         } else {
             for (const k of keys) { this.orig[k] = s[k]; }
-            this.renderer.scheduleRender();
+            (self.renderer as IRenderer).scheduleRender();
         }
     }
 
@@ -101,8 +101,9 @@ export class Actions<S extends {}> {
     public init(r: IRenderer) {
         this.renderer = r;
         const self    = this;
-        this.state    = proxperty.make(this.orig, () => self.renderer.scheduleRender());
-        this.remember = proxperty.makeH(this.orig, () => self.renderer.scheduleRender(), this.History);
+        this.state    = proxperty.make(this.orig, () => (self.renderer as IRenderer).scheduleRender());
+        this.remember = proxperty.makeH(this.orig, () => 
+            (self.renderer as IRenderer).scheduleRender(), this.History as IHistory);
     }
 }
 

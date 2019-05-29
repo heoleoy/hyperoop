@@ -9,7 +9,7 @@ interface IHTMLElementExt extends HTMLElement {
 }
 
 function clone(target: any, source?: any): any {
-    const out = {};
+    const out: any = {};
 
     for (const i in target) { out[i] = target[i]; }
     for (const i in source) { out[i] = source[i]; }
@@ -17,18 +17,19 @@ function clone(target: any, source?: any): any {
     return out;
 }
 
+const fn = (el: Element) => el.nodeType === 3 // Node.TEXT_NODE
+            ? el.nodeValue
+            : elementToVNode(el)
+
 function elementToVNode(element: ChildNode): IVirtualNode {
     return {
         attributes: {},
-        children: [].map.call(element.childNodes,
-            (el) => el.nodeType === 3 // Node.TEXT_NODE
-                ? el.nodeValue
-                : elementToVNode(el)),
+        children: [].map.call(element.childNodes, fn as unknown as ()=>{}) as ChildVirtualNode<{}>[],
         nodeName: element.nodeName.toLowerCase(),
     };
 }
 
-function resolveNode(node: ChildVirtualNode | LazyVirtualNode) {
+function resolveNode(node: ChildVirtualNode | LazyVirtualNode): ChildVirtualNode | string {
     return typeof node === "function"
         ? resolveNode(node())
         : node != null
@@ -55,7 +56,7 @@ function updateStyle(element: IHTMLElementExt, value: any, oldValue: any) {
             if (key[0] === "-") {
                 element.style.setProperty(key, style);
             } else {
-                element.style[key] = style;
+                element.style[key as any] = style;
             }
         }
     }
@@ -86,6 +87,7 @@ const specialAttrNames = {
     translate  : 1,
     type       : 1,
 };
+
 
 function updateAttribute(element: IHTMLElementExt, name: string, value: any, oldValue: any, isSvg: boolean) {
     if (name === "key") { return; }
@@ -136,14 +138,14 @@ function removeElement(parent: ChildNode, element: ChildNode, node: ChildVirtual
 export class Renderer {
     private skipRender = false;
     private isRecycling = true;
-    private lifecycle = [];
-    private rootElement: ChildNode;
-    private oldNode: IVirtualNode;
+    private lifecycle: (()=>any)[] = [];
+    private rootElement: Element | null;
+    private oldNode: IVirtualNode | null;
     private view: LazyVirtualNode;
     private container: HTMLElement | null;
-    private action: IActionInitializer;
+    private action?: IActionInitializer;
 
-    constructor(container: HTMLElement | null, view: LazyVirtualNode, action: IActionInitializer) {
+    constructor(container: HTMLElement | null, view: LazyVirtualNode, action?: IActionInitializer) {
         this.container = container;
         this.view = view;
         this.rootElement = (container && container.children[0]) || null;
@@ -160,14 +162,15 @@ export class Renderer {
         });
 
         if (this.container && !this.skipRender) {
-            this.rootElement = this.patch(this.container, this.rootElement, this.oldNode, (this.oldNode = node));
+            this.rootElement = this.patch(this.container, this.rootElement, this.oldNode, (this.oldNode = node as IVirtualNode<{}>));
         }
 
         this.isRecycling = false;
         while (this.lifecycle.length) {
-            this.lifecycle.pop()();
+            const fn = this.lifecycle.pop() as () => any;
+            fn();
         }
-        return node;
+        return node as IVirtualNode;
     }
 
     public scheduleRender() {
@@ -178,15 +181,16 @@ export class Renderer {
     }
 
     private createElement(node: ChildVirtualNode, isSvg: boolean) {
-        let element: HTMLElement | SVGElement | Text = null;
+        let element: HTMLElement | SVGElement | Text | null = null;
         if (typeof node === "string" || typeof node === "number") {
             element = document.createTextNode("" + node);
         } else {
-            isSvg = isSvg || node.nodeName === "svg";
+            const vnode = node as IVirtualNode;
+            isSvg = isSvg || vnode.nodeName === "svg";
             if (isSvg) {
-                element = document.createElementNS("http://www.w3.org/2000/svg", node.nodeName);
+                element = document.createElementNS("http://www.w3.org/2000/svg", vnode.nodeName);
             } else {
-                element = document.createElement(node.nodeName);
+                element = document.createElement(vnode.nodeName);
             }
         }
 
@@ -207,7 +211,7 @@ export class Renderer {
                 }
 
                 for (const name in attributes) {
-                    updateAttribute(element as IHTMLElementExt, name, attributes[name], null, isSvg);
+                    updateAttribute(element as IHTMLElementExt, name, (attributes as {[key:string]: string})[name], null, isSvg);
                 }
             }
         }
@@ -232,7 +236,7 @@ export class Renderer {
     }
 
     private patchNewNode(
-        parent: ChildNode, element: ChildNode, oldNode: ChildVirtualNode,
+        parent: ChildNode, element: Element, oldNode: ChildVirtualNode,
         node: ChildVirtualNode, isSvg: boolean,
     ): ChildNode {
 
@@ -247,7 +251,7 @@ export class Renderer {
     }
 
     private patchChildren(
-        element: ChildNode, oldNode: IVirtualNode, node: IVirtualNode, isSvg: boolean = false,
+        element: Element, oldNode: IVirtualNode, node: IVirtualNode, isSvg: boolean = false,
     ): ChildNode {
 
         isSvg = isSvg || node.nodeName === "svg";
@@ -275,7 +279,7 @@ export class Renderer {
             const oldKey = getKey(oldChildren[i]);
             const newKey = getKey((children[k] = resolveNode(children[k])));
 
-            if (newKeyed[oldKey]) {
+            if (newKeyed[oldKey as string]) {
                 i++;
                 continue;
             }
@@ -290,7 +294,7 @@ export class Renderer {
 
             if (newKey == null || this.isRecycling) {
                 if (oldKey == null) {
-                    this.patch(element, oldElements[i], oldChildren[i], children[k], isSvg);
+                    this.patch(element, oldElements[i] as Element, oldChildren[i], children[k], isSvg);
                     k++;
                 }
                 i++;
@@ -304,7 +308,7 @@ export class Renderer {
                     const el = element.insertBefore(keyedNode[0], oldElements[i]);
                     this.patch(element, el, keyedNode[1], children[k], isSvg);
                 } else {
-                    this.patch(element, oldElements[i], null, children[k], isSvg);
+                    this.patch(element, oldElements[i] as Element, null, children[k], isSvg);
                 }
 
                 newKeyed[newKey] = children[k];
@@ -329,17 +333,17 @@ export class Renderer {
     }
 
     private patch(
-        parent: ChildNode, element: ChildNode, oldNode: ChildVirtualNode,
+        parent: ChildNode, element: Element | null, oldNode: ChildVirtualNode,
         node: ChildVirtualNode, isSvg: boolean = false,
     ) {
         if (node === oldNode) { return element; }
 
         if (oldNode == null || ((oldNode as any).nodeName !== (node as any).nodeName)) {
-            element = this.patchNewNode(parent, element, oldNode, node, isSvg);
+            element = this.patchNewNode(parent, element as Element, oldNode, node, isSvg) as Element;
         } else if ((!isVNode(oldNode) || oldNode.nodeName == null) && !isVNode(node)) {
-            element.nodeValue = "" + node;
+            (element as Element).nodeValue = "" + node;
         } else if (isVNode(node) && isVNode(oldNode)) {
-            element = this.patchChildren(element, oldNode, node, isSvg);
+            element = this.patchChildren(element as Element, oldNode, node, isSvg) as Element;
         } else {
             throw new Error("Mom, what this 'patch' wants???");
         }
@@ -350,9 +354,9 @@ export class Renderer {
 /** IMplementations of this interface can be used in order to manually schedule redraw. */
 export interface IRenderer {
     /** Function that schedules rendering */
-    scheduleRender();
+    scheduleRender(): any;
 }
 
 export interface IActionInitializer {
-    init(r: IRenderer);
+    init(r: IRenderer): any;
 }
