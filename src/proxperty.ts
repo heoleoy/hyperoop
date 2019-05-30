@@ -34,8 +34,8 @@ export function make<T extends object>(target: T, after: () => void): T {
  * @param after callback to execute after set or delete entries of `target`
  * @param hist `redoundo.Hist` object
  */
-export function makeH<T extends object>(target: T, after: () => void, hist: IHistory): T {
-    if (!hist) { return null; }
+export function makeH<T extends object>(target: T, after: () => void, hist?: IHistory): T | undefined {
+    if (!hist) { return; }
     return new Proxy<T>(target, {
         set: (t, k, v) => {
             const was = k in target;

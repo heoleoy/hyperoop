@@ -1,5 +1,7 @@
 import * as ui from "hyperoop";
 import Hist from "redoundo";
+import { IActionsParent } from "../../dist/actions";
+import { IHistory } from "../../src/history";
 
 export const ref1: ui.IVirtualNode<{href: string}> = (<a href="#"/>);
 export const ref2: ui.LazyVirtualNode = () => (<a href="#"/>);
@@ -20,7 +22,7 @@ class Actions extends ui.Actions<IState> {
     public sub: SubActions;
     constructor(s: IState) {
         super(s, new Hist(50));
-        this.sub = new SubActions({}, this);
+        this.sub = new SubActions({}, this as IActionsParent);
     }
 }
 
@@ -46,15 +48,15 @@ const view: ui.LazyVirtualNode = () => (
 ui.init(document.body, view, actions);
 
 actions.State.x = "OK";
-actions.Remember.x = "OK";
+(actions.Remember as IState).x = "OK";
 actions.Renderer.scheduleRender();
 actions.set({x: "OK"});
-actions.History.redo();
-actions.History.undo();
+(actions.History as IHistory).redo();
+(actions.History as IHistory).undo();
 actions.sub.State.y = "OK";
 actions.sub.Remember.y = "OK";
 actions.sub.Renderer.scheduleRender();
 actions.sub.init(actions.Renderer);
 actions.sub.set({y: "OK"});
-actions.sub.History.redo();
-actions.sub.History.undo();
+(actions.sub.History as IHistory).redo();
+(actions.sub.History as IHistory).undo();

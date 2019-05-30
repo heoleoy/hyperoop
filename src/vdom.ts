@@ -66,7 +66,7 @@ export function h<A>(
     attributes?: A,
     ...rest: ChildLike[]): IVirtualNode<A> | LazyVirtualNode {
 
-    const ch = [];
+    const ch: ChildLike[] = [];
     rest.reverse();
 
     while (rest.length) {
@@ -81,7 +81,7 @@ export function h<A>(
     }
 
     if (typeof name === "function") {
-        return name(attributes || ({} as A), ch);
+        return name(attributes || ({} as A), ch as ChildVirtualNode[]);
     }
 
     const node = {
@@ -91,7 +91,7 @@ export function h<A>(
         nodeName: name,
     };
 
-    return node;
+    return node as IVirtualNode<A>;
 }
 
 export type JSXFactory = typeof h;

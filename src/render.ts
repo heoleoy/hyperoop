@@ -136,14 +136,14 @@ function removeElement(parent: ChildNode, element: ChildNode, node: ChildVirtual
 export class Renderer {
     private skipRender = false;
     private isRecycling = true;
-    private lifecycle = [];
-    private rootElement: ChildNode;
-    private oldNode: IVirtualNode;
+    private lifecycle: (()=>{})[] = [];
+    private rootElement: ChildNode | null;
+    private oldNode: IVirtualNode | null;
     private view: LazyVirtualNode;
     private container: HTMLElement | null;
-    private action: IActionInitializer;
+    private action?: IActionInitializer;
 
-    constructor(container: HTMLElement | null, view: LazyVirtualNode, action: IActionInitializer) {
+    constructor(container: HTMLElement | null, view: LazyVirtualNode, action?: IActionInitializer) {
         this.container = container;
         this.view = view;
         this.rootElement = (container && container.children[0]) || null;
@@ -160,12 +160,12 @@ export class Renderer {
         });
 
         if (this.container && !this.skipRender) {
-            this.rootElement = this.patch(this.container, this.rootElement, this.oldNode, (this.oldNode = node));
+            this.rootElement = this.patch(this.container, this.rootElement as ChildNode, this.oldNode, (this.oldNode = node));
         }
 
         this.isRecycling = false;
         while (this.lifecycle.length) {
-            this.lifecycle.pop()();
+            (this.lifecycle.pop() as ()=>{})();
         }
         return node;
     }
@@ -178,15 +178,15 @@ export class Renderer {
     }
 
     private createElement(node: ChildVirtualNode, isSvg: boolean) {
-        let element: HTMLElement | SVGElement | Text = null;
+        let element: HTMLElement | SVGElement | Text | null = null;
         if (typeof node === "string" || typeof node === "number") {
             element = document.createTextNode("" + node);
         } else {
-            isSvg = isSvg || node.nodeName === "svg";
+            isSvg = isSvg || (node as IVirtualNode).nodeName === "svg";
             if (isSvg) {
-                element = document.createElementNS("http://www.w3.org/2000/svg", node.nodeName);
+                element = document.createElementNS("http://www.w3.org/2000/svg", (node as IVirtualNode).nodeName);
             } else {
-                element = document.createElement(node.nodeName);
+                element = document.createElement((node as IVirtualNode).nodeName);
             }
         }
 
@@ -255,7 +255,7 @@ export class Renderer {
 
         const oldKeyed = {};
         const newKeyed = {};
-        const oldElements = [];
+        const oldElements: ChildNode[] = [];
         const oldChildren = oldNode.children;
         const children = node.children;
 
@@ -275,7 +275,7 @@ export class Renderer {
             const oldKey = getKey(oldChildren[i]);
             const newKey = getKey((children[k] = resolveNode(children[k])));
 
-            if (newKeyed[oldKey]) {
+            if (newKeyed[oldKey as string]) {
                 i++;
                 continue;
             }
